@@ -3,12 +3,14 @@ from ultralytics import YOLO
 import cv2
 import time
 import json
+import base64
 import paho.mqtt.client as mqtt
 
 # ---------------------- MQTT SETUP ----------------------
 MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
 MQTT_PORT = 1883
-MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data"
+MQTT_TOPIC_COUNT = "tippaphanun/5f29d93c/sensor/data"
+MQTT_TOPIC_IMAGE = "tippaphanun/5f29d93c/sensor/image"
 
 client = mqtt.Client()
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -28,9 +30,12 @@ time.sleep(1)
 
 print("Counting people currently in camera... Ctrl+C to stop")
 
+frame_idx = 0  # simple counter to optionally throttle image sending
+
 try:
     while True:
         frame = picam2.capture_array()
+        frame_idx += 1
 
         # detect only people (class 0)
         results = model.predict(frame, classes=[0], verbose=False)
@@ -53,13 +58,30 @@ try:
                     2
                 )
 
-        # ------------------- SEND TO MQTT -------------------
-        payload = {
+        # ------------------- SEND COUNT TO MQTT -------------------
+        payload_count = {
             "type": "people_count",
             "value": people_count
         }
-        client.publish(MQTT_TOPIC, json.dumps(payload))
-        # ----------------------------------------------------
+        client.publish(MQTT_TOPIC_COUNT, json.dumps(payload_count))
+        # ---------------------------------------------------------
+
+        # ------------------- SEND IMAGE TO MQTT -------------------
+        # (optional throttle: only send every 5th frame)
+        if frame_idx % 5 == 0:
+            # encode frame as JPEG
+            success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            if success:
+                jpg_bytes = buffer.tobytes()
+                # base64 encode for safe JSON transport
+                img_b64 = base64.b64encode(jpg_bytes).decode("ascii")
+
+                payload_image = {
+                    "type": "people_frame",
+                    "image": img_b64
+                }
+                client.publish(MQTT_TOPIC_IMAGE, json.dumps(payload_image))
+        # ---------------------------------------------------------
 
         # show current count
         cv2.putText(
