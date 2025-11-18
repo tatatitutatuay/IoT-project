@@ -28,13 +28,13 @@ def save_data(payload: dict):
     db.collection("data").add(doc)
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
-    # print("Connected to MQTT broker with code:", reason_code)
+    print("Connected to MQTT broker with code:", reason_code)
     client.subscribe(MQTT_TOPIC_ROOT)
     print("Subscribed to:", MQTT_TOPIC_ROOT)
 
 
 def on_message(client, userdata, msg):
-    # print("Message received on topic:", msg.topic)
+    print("Message received on topic:", msg.topic)
 
     topic = msg.topic
     payload_raw = msg.payload.decode("utf-8", errors="ignore")
