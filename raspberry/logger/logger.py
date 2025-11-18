@@ -14,7 +14,7 @@ db = firestore.client()
 # ---------- MQTT setup ----------
 MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
-MQTT_TOPIC_ROOT = "tippaphanun/5f29d93c/sensor"
+MQTT_TOPIC_ROOT = "tippaphanun/5f29d93c/sensor/data"
 
 
 def save_data(payload: dict):
@@ -34,6 +34,8 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
 
 
 def on_message(client, userdata, msg):
+    print("Message received on topic:", msg.topic)
+
     topic = msg.topic
     payload_raw = msg.payload.decode("utf-8", errors="ignore")
 
@@ -46,6 +48,7 @@ def on_message(client, userdata, msg):
 
     # Route by topic / type
     if topic.endswith("/sensor/data"):
+        print("Received data message:", data)
         save_data(data)
     else:
         print("No handler for this topic/type, skipping.")
