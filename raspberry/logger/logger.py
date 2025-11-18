@@ -14,7 +14,7 @@ db = firestore.client()
 # ---------- MQTT setup ----------
 MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
-MQTT_TOPIC_ROOT = "tippaphanun/5f29d93c/sensor"
+MQTT_TOPIC_ROOT = "tippaphanun/5f29d93c/sensor/data"
 
 
 def save_data(payload: dict):
