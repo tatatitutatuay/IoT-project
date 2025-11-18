@@ -44,7 +44,7 @@ try:
 
     # วนลูปไปเรื่อยๆ เพื่อให้โปรแกรมทำงาน
     while True:
-        time.sleep(1) # พัก 1 วินาที
+        time.sleep(60) # พัก 60 วินาที
         payload_sound_event(0) # ส่งสถานะไม่มีเสียงเป็นระยะ
 
 except KeyboardInterrupt:
