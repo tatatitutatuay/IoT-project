@@ -91,43 +91,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-
-                {/* Status & Info Section */}
-                <div className="flex flex-row-reverse gap-2">
-                  {/* Connection Status */}
-                  {isConnected ? (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105">
-                      <div className="relative">
-                        <Wifi className="w-4 h-4 text-white animate-pulse" />
-                        <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-white rounded-full animate-ping"></div>
-                      </div>
-                      <div>
-                        <span className="text-white font-bold text-xs block">
-                          Connected
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-500 to-red-600 rounded-lg shadow-lg shadow-rose-500/30 transition-all duration-300">
-                      <WifiOff className="w-4 h-4 text-white" />
-                      <div>
-                        <span className="text-white font-bold text-xs block">
-                          Disconnected
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Time Display */}
-                  {currentTime && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-lg border border-gray-200/50 dark:border-gray-600/50">
-                      <Activity className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
-                      <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">
-                        {new Date(currentTime).toLocaleTimeString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
               </div>
 
               {/* Error Alert */}
