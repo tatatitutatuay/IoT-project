@@ -52,7 +52,7 @@ export const SensorCard: React.FC<SensorCardProps> = ({
 
   return (
     <div
-      className={`relative overflow-hidden bg-white/80 dark:bg-gray-800/40 backdrop-blur-md rounded-2xl shadow-md ${config.glow} p-6 border-2 ${config.border} transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 group`}
+      className={`relative overflow-hidden bg-white/80 dark:bg-gray-800/40 backdrop-blur-md rounded-xl shadow-md ${config.glow} p-4 border-2 ${config.border} transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:-translate-y-1 group`}
     >
       {/* Gradient Overlay */}
       <div
@@ -60,47 +60,47 @@ export const SensorCard: React.FC<SensorCardProps> = ({
       ></div>
 
       <div className="relative z-10">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
             <div
-              className={`p-3.5 rounded-2xl ${config.iconBg} shadow-lg backdrop-blur-sm border border-white/10 group-hover:scale-110 transition-transform duration-300`}
+              className={`p-2 rounded-xl ${config.iconBg} shadow-lg backdrop-blur-sm border border-white/10 group-hover:scale-110 transition-transform duration-300`}
             >
-              <Icon className={`w-7 h-7 ${config.iconColor}`} />
+              <Icon className={`w-5 h-5 ${config.iconColor}`} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">
+              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
                 {title}
               </h3>
               {description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
                   {description}
                 </p>
               )}
             </div>
           </div>
           <div
-            className={`w-3.5 h-3.5 rounded-full ${config.bg} shadow-lg animate-pulse`}
+            className={`w-2.5 h-2.5 rounded-full ${config.bg} shadow-lg animate-pulse`}
           ></div>
         </div>
 
-        <div className="mt-5 pt-4 border-t border-gray-200/50 dark:border-gray-700/50">
-          <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-black text-gray-900 dark:text-white tracking-tight">
+        <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl font-black text-gray-900 dark:text-white tracking-tight">
               {typeof value === "number" ? value.toFixed(1) : value}
             </span>
             {unit && (
-              <span className="text-2xl font-bold text-gray-500 dark:text-gray-400">
+              <span className="text-lg font-bold text-gray-500 dark:text-gray-400">
                 {unit}
               </span>
             )}
           </div>
 
           {/* Status Badge */}
-          <div className="mt-3">
+          <div className="mt-2">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${config.iconBg} ${config.iconColor} border ${config.border}`}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${config.iconBg} ${config.iconColor} border ${config.border}`}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${config.bg}`}></span>
+              <span className={`w-1 h-1 rounded-full ${config.bg}`}></span>
               {status === "normal"
                 ? "Normal"
                 : status === "warning"

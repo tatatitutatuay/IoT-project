@@ -67,35 +67,35 @@ export const SensorCard: React.FC<SensorCardProps> = ({
 
   return (
     <div
-      className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl ${config.glow} p-6 border-2 ${config.border} transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] hover:-translate-y-1`}
+      className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl shadow-xl ${config.glow} p-4 border-2 ${config.border} transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] hover:-translate-y-1`}
     >
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className={`p-3.5 rounded-2xl ${config.iconBg} shadow-lg`}>
-            <Icon className={`w-7 h-7 ${config.bg.replace("bg-", "text-")}`} />
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={`p-2 rounded-xl ${config.iconBg} shadow-lg`}>
+            <Icon className={`w-5 h-5 ${config.bg.replace("bg-", "text-")}`} />
           </div>
-          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
             {title}
           </h3>
         </div>
         <div
-          className={`w-3.5 h-3.5 rounded-full ${config.bg} shadow-lg animate-pulse`}
+          className={`w-2.5 h-2.5 rounded-full ${config.bg} shadow-lg animate-pulse`}
         ></div>
       </div>
 
-      <div className="mt-5">
-        <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-black text-gray-900 dark:text-white">
+      <div className="mt-3">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-3xl font-black text-gray-900 dark:text-white">
             {typeof value === "number" ? value.toFixed(1) : value}
           </span>
           {unit && (
-            <span className="text-2xl font-bold text-gray-500 dark:text-gray-400">
+            <span className="text-lg font-bold text-gray-500 dark:text-gray-400">
               {unit}
             </span>
           )}
         </div>
         {description && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-3 font-medium">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 font-medium">
             {description}
           </p>
         )}
@@ -133,21 +133,21 @@ export const SensorChart: React.FC<SensorChartProps> = ({
   }, [data, maxDataPoints]);
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl shadow-purple-500/10 dark:shadow-purple-500/5 p-6 border border-gray-200/50 dark:border-gray-700/50 hover:shadow-2xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/10 transition-all duration-300">
-      <h3 className="text-xl font-black text-gray-800 dark:text-gray-100 mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl shadow-xl shadow-purple-500/10 dark:shadow-purple-500/5 p-4 border border-gray-200/50 dark:border-gray-700/50 hover:shadow-2xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/10 transition-all duration-300">
+      <h3 className="text-base font-black text-gray-800 dark:text-gray-100 mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
         {title}
       </h3>
-      <ResponsiveContainer width="100%" height={200}>
+      <ResponsiveContainer width="100%" height={160}>
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
           <XAxis
             dataKey="timestamp"
             stroke="#9CA3AF"
-            fontSize={12}
+            fontSize={10}
             fontWeight={600}
             tickFormatter={(value) => value.split(":").slice(0, 2).join(":")}
           />
-          <YAxis stroke="#9CA3AF" fontSize={12} fontWeight={600} unit={unit} />
+          <YAxis stroke="#9CA3AF" fontSize={10} fontWeight={600} unit={unit} />
           <Tooltip
             contentStyle={{
               backgroundColor: "#1F2937",
