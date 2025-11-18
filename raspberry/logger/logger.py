@@ -34,6 +34,8 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
 
 
 def on_message(client, userdata, msg):
+    print("Message received on topic:", msg.topic)
+
     topic = msg.topic
     payload_raw = msg.payload.decode("utf-8", errors="ignore")
 
