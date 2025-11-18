@@ -29,12 +29,11 @@ time.sleep(1)
 
 print("Counting people currently in camera... Ctrl+C to stop")
 
-frame_idx = 0
+last_people_count = None  # remember previous count
 
 try:
     while True:
         frame = picam2.capture_array()
-        frame_idx += 1
 
         # detect only people (class 0)
         results = model.predict(frame, classes=[0], verbose=False)
@@ -45,24 +44,47 @@ try:
             for box in results[0].boxes:
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 people_count += 1
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                cv2.rectangle(
+                    frame,
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
+                    (0, 255, 0),
+                    2
+                )
 
-        # ------------------- SEND COUNT TO MQTT -------------------
-        payload_count = {"type": "people_count", "value": people_count}
-        client.publish(MQTT_TOPIC_COUNT, json.dumps(payload_count))
-        # ---------------------------------------------------------
+        # ------------------- ONLY SEND WHEN COUNT CHANGES -------------------
+        if people_count != last_people_count:
+            # send count
+            payload_count = {
+                "type": "people_count",
+                "value": people_count
+            }
+            client.publish(MQTT_TOPIC_COUNT, json.dumps(payload_count))
 
-        # ------------------- SEND RAW IMAGE TO MQTT -------------------
-        if frame_idx % 5 == 0:  # send every 5th frame to reduce load
-            success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            # send current frame as raw JPEG
+            success, buffer = cv2.imencode(
+                ".jpg",
+                frame,
+                [int(cv2.IMWRITE_JPEG_QUALITY), 70]
+            )
             if success:
                 jpg_bytes = buffer.tobytes()
                 client.publish(MQTT_TOPIC_IMAGE, jpg_bytes)
-        # ------------------------------------------------------------
+
+            print(f"People count changed: {last_people_count} -> {people_count}")
+            last_people_count = people_count
+        # -------------------------------------------------------------------
 
         # show current count
-        cv2.putText(frame, f"People: {people_count}", (10, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(
+            frame,
+            f"People: {people_count}",
+            (10, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 255),
+            2
+        )
 
         cv2.imshow("Live People Counter", frame)
 
