@@ -2,6 +2,17 @@ from picamera2 import Picamera2
 from ultralytics import YOLO
 import cv2
 import time
+import json
+import paho.mqtt.client as mqtt
+
+# ---------------------- MQTT SETUP ----------------------
+MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
+MQTT_PORT = 1883
+MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data"
+
+client = mqtt.Client()
+client.connect(MQTT_BROKER, MQTT_PORT, 60)
+# --------------------------------------------------------
 
 # Load YOLO model
 model = YOLO("yolov8n.pt")
@@ -34,12 +45,32 @@ try:
                 people_count += 1
 
                 # draw bounding box
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)),
-                              (0, 255, 0), 2)
+                cv2.rectangle(
+                    frame,
+                    (int(x1), int(y1)),
+                    (int(x2), int(y2)),
+                    (0, 255, 0),
+                    2
+                )
+
+        # ------------------- SEND TO MQTT -------------------
+        payload = {
+            "type": "people_count",
+            "value": people_count
+        }
+        client.publish(MQTT_TOPIC, json.dumps(payload))
+        # ----------------------------------------------------
 
         # show current count
-        cv2.putText(frame, f"People: {people_count}", (10, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        cv2.putText(
+            frame,
+            f"People: {people_count}",
+            (10, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (0, 255, 255),
+            2
+        )
 
         cv2.imshow("Live People Counter", frame)
 
@@ -51,3 +82,4 @@ except KeyboardInterrupt:
 
 cv2.destroyAllWindows()
 picam2.stop()
+client.disconnect()
