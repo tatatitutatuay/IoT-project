@@ -1,24 +1,27 @@
 """
-28BYJ-48 Stepper Motor Control with ULN2003AN Driver
-Control module for 28BYJ-48 stepper motor connected via ULN2003AN driver board to Raspberry Pi
+28BYJ-48 Stepper Motor Fan Control with ULN2003AN Driver
+Control module for 28BYJ-48 stepper motor as a fan with speed levels (OFF, 1, 2, 3)
+LED indicators show current fan speed level
 """
 
 import RPi.GPIO as GPIO
 import time
-from typing import Literal
+import threading
 
-class StepperMotor:
+class FanMotor:
     """
-    Control class for 28BYJ-48 stepper motor with ULN2003AN driver
+    Control class for 28BYJ-48 stepper motor as a fan with speed levels
     
-    The 28BYJ-48 is a 5V unipolar stepper motor with:
-    - Stride Angle: 5.625°/64
-    - Reduction Ratio: 1/64
-    - Steps per revolution: 2048 (with gear reduction)
+    Fan Modes:
+    - OFF (0): Fan stopped, all LEDs off
+    - Level 1: Slow speed, LED 1 on
+    - Level 2: Medium speed, LED 1-2 on
+    - Level 3: Fast speed, LED 1-3 on
+    
+    The 4th LED blinks when fan is running
     """
     
-    # Step sequences for different drive modes
-    # Half-step sequence (8 steps) - smoother operation, better torque
+    # Step sequences for smooth operation
     HALF_STEP_SEQ = [
         [1, 0, 0, 0],
         [1, 1, 0, 0],
@@ -30,52 +33,34 @@ class StepperMotor:
         [1, 0, 0, 1]
     ]
     
-    # Full-step sequence (4 steps) - higher torque, less smooth
-    FULL_STEP_SEQ = [
-        [1, 0, 0, 1],
-        [1, 1, 0, 0],
-        [0, 1, 1, 0],
-        [0, 0, 1, 1]
-    ]
-    
-    # Wave drive sequence (4 steps) - lowest power consumption
-    WAVE_STEP_SEQ = [
-        [1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, 1, 0],
-        [0, 0, 0, 1]
-    ]
+    # Speed settings (RPM for each level)
+    SPEED_LEVELS = {
+        0: 0,      # OFF
+        1: 5,      # Slow
+        2: 10,     # Medium
+        3: 15      # Fast
+    }
     
     def __init__(self, 
                  in1_pin: int = 5, 
                  in2_pin: int = 6, 
                  in3_pin: int = 12, 
-                 in4_pin: int = 16,
-                 step_mode: Literal["half", "full", "wave"] = "half"):
+                 in4_pin: int = 16):
         """
-        Initialize the stepper motor controller
+        Initialize the fan motor controller
         
         Args:
-            in1_pin: GPIO pin for IN1 on ULN2003AN (default: GPIO17)
-            in2_pin: GPIO pin for IN2 on ULN2003AN (default: GPIO18)
-            in3_pin: GPIO pin for IN3 on ULN2003AN (default: GPIO27)
-            in4_pin: GPIO pin for IN4 on ULN2003AN (default: GPIO22)
-            step_mode: Stepping mode - "half", "full", or "wave" (default: "half")
+            in1_pin: GPIO pin for IN1 on ULN2003AN (default: GPIO5)
+            in2_pin: GPIO pin for IN2 on ULN2003AN (default: GPIO6)
+            in3_pin: GPIO pin for IN3 on ULN2003AN (default: GPIO12)
+            in4_pin: GPIO pin for IN4 on ULN2003AN (default: GPIO16)
         """
         self.pins = [in1_pin, in2_pin, in3_pin, in4_pin]
-        self.step_mode = step_mode
-        self.current_position = 0
-        
-        # Set step sequence based on mode
-        if step_mode == "half":
-            self.step_sequence = self.HALF_STEP_SEQ
-            self.steps_per_rev = 4096  # 2048 * 2 for half-stepping
-        elif step_mode == "full":
-            self.step_sequence = self.FULL_STEP_SEQ
-            self.steps_per_rev = 2048
-        else:  # wave
-            self.step_sequence = self.WAVE_STEP_SEQ
-            self.steps_per_rev = 2048
+        self.step_sequence = self.HALF_STEP_SEQ
+        self.steps_per_rev = 4096
+        self.current_level = 0
+        self.is_running = False
+        self.fan_thread = None
         
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
@@ -85,152 +70,179 @@ class StepperMotor:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
         
-        print(f"StepperMotor initialized on pins {self.pins} in {step_mode}-step mode")
+        print(f"FanMotor initialized on pins {self.pins}")
+        print("Fan Levels: 0 (OFF), 1 (Slow), 2 (Medium), 3 (Fast)")
     
     def _set_step(self, step_pattern: list):
         """Set the GPIO pins according to step pattern"""
         for pin, state in zip(self.pins, step_pattern):
             GPIO.output(pin, state)
     
-    def step(self, steps: int, delay: float = 0.001, direction: Literal["cw", "ccw"] = "cw"):
-        """
-        Move the motor by specified number of steps
-        
-        Args:
-            steps: Number of steps to move (positive = clockwise, negative = counter-clockwise)
-            delay: Delay between steps in seconds (default: 0.001, min: 0.0005 for 28BYJ-48)
-            direction: Direction to move - "cw" (clockwise) or "ccw" (counter-clockwise)
-        """
-        # Adjust steps based on direction parameter
-        if direction == "ccw":
-            steps = -abs(steps)
-        else:
-            steps = abs(steps)
-        
-        step_count = abs(steps)
-        step_direction = 1 if steps > 0 else -1
-        
-        for _ in range(step_count):
-            for step_pattern in self.step_sequence[::step_direction]:
-                self._set_step(step_pattern)
-                time.sleep(delay)
-                self.current_position += step_direction
-        
-        # Turn off all coils after movement to save power
-        self._set_step([0, 0, 0, 0])
+    def _update_led_indicator(self):
+        """Update LED pattern based on current fan level (LEDs 1-3 indicate speed)"""
+        if self.current_level == 0:
+            # OFF - All LEDs off
+            self._set_step([0, 0, 0, 0])
+        elif self.current_level == 1:
+            # Level 1 - Only LED 1 on (slow)
+            led_pattern = [1, 0, 0, 0]
+            self._set_step(led_pattern)
+        elif self.current_level == 2:
+            # Level 2 - LED 1 and 2 on (medium)
+            led_pattern = [1, 1, 0, 0]
+            self._set_step(led_pattern)
+        elif self.current_level == 3:
+            # Level 3 - LED 1, 2, and 3 on (fast)
+            led_pattern = [1, 1, 1, 0]
+            self._set_step(led_pattern)
     
-    def rotate_angle(self, angle: float, speed: float = 15.0, direction: Literal["cw", "ccw"] = "cw"):
-        """
-        Rotate the motor by a specific angle
+    def _run_motor_loop(self):
+        """Internal method to run motor continuously"""
+        speed = self.SPEED_LEVELS[self.current_level]
+        delay = 60.0 / (speed * self.steps_per_rev) if speed > 0 else 0
         
-        Args:
-            angle: Angle to rotate in degrees (0-360)
-            speed: Rotation speed in RPM (revolutions per minute, default: 15)
-            direction: Direction to move - "cw" or "ccw"
-        """
-        steps = int((angle / 360.0) * self.steps_per_rev)
-        delay = 60.0 / (speed * self.steps_per_rev)  # Calculate delay for desired RPM
+        led_blink_state = False
+        step_counter = 0
         
-        self.step(steps, delay, direction)
-    
-    def rotate_revolutions(self, revolutions: float, speed: float = 15.0, direction: Literal["cw", "ccw"] = "cw"):
-        """
-        Rotate the motor by a number of full revolutions
-        
-        Args:
-            revolutions: Number of complete revolutions (can be fractional)
-            speed: Rotation speed in RPM (default: 15)
-            direction: Direction to move - "cw" or "ccw"
-        """
-        steps = int(revolutions * self.steps_per_rev)
-        delay = 60.0 / (speed * self.steps_per_rev)
-        
-        self.step(steps, delay, direction)
-    
-    def continuous_rotation(self, speed: float = 15.0, direction: Literal["cw", "ccw"] = "cw", duration: float = None):
-        """
-        Rotate continuously at specified speed
-        
-        Args:
-            speed: Rotation speed in RPM (default: 15)
-            direction: Direction to move - "cw" or "ccw"
-            duration: Duration in seconds (None = indefinite, requires manual stop)
-        """
-        delay = 60.0 / (speed * self.steps_per_rev)
-        start_time = time.time()
-        
-        try:
-            while True:
-                if duration and (time.time() - start_time) >= duration:
+        while self.is_running:
+            # Rotate through step sequence
+            for step_pattern in self.step_sequence:
+                if not self.is_running:
                     break
                 
-                for step_pattern in (self.step_sequence if direction == "cw" else self.step_sequence[::-1]):
-                    self._set_step(step_pattern)
-                    time.sleep(delay)
-        except KeyboardInterrupt:
-            print("\nContinuous rotation stopped")
-        finally:
-            self._set_step([0, 0, 0, 0])
+                # Create pattern with speed LEDs (1-3) and blinking activity LED (4)
+                pattern = step_pattern.copy()
+                
+                # Set speed indicator LEDs (1-3)
+                if self.current_level >= 1:
+                    pattern[0] = 1
+                if self.current_level >= 2:
+                    pattern[1] = 1
+                if self.current_level >= 3:
+                    pattern[2] = 1
+                
+                # Blink 4th LED to show fan is active (toggle every 8 steps)
+                if step_counter % 8 == 0:
+                    led_blink_state = not led_blink_state
+                pattern[3] = 1 if led_blink_state else 0
+                
+                self._set_step(pattern)
+                time.sleep(delay)
+                step_counter += 1
+        
+        # When stopped, show only the level indicator LEDs
+        self._update_led_indicator()
+    
+    def set_level(self, level: int):
+        """
+        Set fan speed level
+        
+        Args:
+            level: Speed level (0=OFF, 1=Slow, 2=Medium, 3=Fast)
+        """
+        if level not in [0, 1, 2, 3]:
+            print(f"Invalid level {level}. Use 0 (OFF), 1 (Slow), 2 (Medium), or 3 (Fast)")
+            return
+        
+        # Stop current operation
+        was_running = self.is_running
+        if was_running:
+            self.stop()
+            time.sleep(0.1)  # Brief pause for thread to stop
+        
+        self.current_level = level
+        
+        if level == 0:
+            print("Fan: OFF")
+            self._update_led_indicator()
+        else:
+            level_names = {1: "Slow", 2: "Medium", 3: "Fast"}
+            print(f"Fan: Level {level} ({level_names[level]}) - RPM: {self.SPEED_LEVELS[level]}")
+            self.start()
+    
+    def start(self):
+        """Start the fan at current level"""
+        if self.current_level == 0:
+            print("Cannot start: Fan level is 0 (OFF). Use set_level(1-3) first.")
+            return
+        
+        if not self.is_running:
+            self.is_running = True
+            self.fan_thread = threading.Thread(target=self._run_motor_loop, daemon=True)
+            self.fan_thread.start()
+            print("Fan started")
     
     def stop(self):
-        """Stop the motor and release all coils"""
-        self._set_step([0, 0, 0, 0])
+        """Stop the fan"""
+        if self.is_running:
+            self.is_running = False
+            if self.fan_thread:
+                self.fan_thread.join(timeout=1)
+            self.current_level = 0
+            self._set_step([0, 0, 0, 0])
+            print("Fan stopped")
     
-    def reset_position(self):
-        """Reset the position counter to zero"""
-        self.current_position = 0
+    def get_level(self) -> int:
+        """Get current fan speed level"""
+        return self.current_level
     
-    def get_position(self) -> int:
-        """Get the current position in steps"""
-        return self.current_position
+    def is_fan_running(self) -> bool:
+        """Check if fan is currently running"""
+        return self.is_running
+    
+    def cycle_level(self):
+        """Cycle through fan levels: 0 -> 1 -> 2 -> 3 -> 0"""
+        next_level = (self.current_level + 1) % 4
+        self.set_level(next_level)
+        return next_level
     
     def cleanup(self):
         """Clean up GPIO resources"""
         self.stop()
+        time.sleep(0.2)
         GPIO.cleanup(self.pins)
-        print("StepperMotor GPIO cleaned up")
+        print("FanMotor GPIO cleaned up")
 
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("28BYJ-48 Stepper Motor Control Demo")
+    print("28BYJ-48 Fan Motor Control Demo")
     print("=" * 50)
     
-    # Initialize motor with default pins (GPIO 17, 18, 27, 22)
-    motor = StepperMotor(step_mode="half")
+    # Initialize fan motor
+    fan = FanMotor()
     
     try:
-        # Demo 1: Rotate 90 degrees clockwise
-        print("\n1. Rotating 90 degrees clockwise...")
-        motor.rotate_angle(90, speed=15, direction="cw")
-        time.sleep(1)
+        print("\n--- Fan Control Demo ---\n")
         
-        # Demo 2: Rotate 90 degrees counter-clockwise (back to start)
-        print("2. Rotating 90 degrees counter-clockwise...")
-        motor.rotate_angle(90, speed=15, direction="ccw")
-        time.sleep(1)
+        # Test each speed level
+        for level in range(4):
+            if level == 0:
+                print("\nSetting fan to OFF...")
+                fan.set_level(0)
+                time.sleep(3)
+            else:
+                level_names = {1: "Slow", 2: "Medium", 3: "Fast"}
+                print(f"\nSetting fan to Level {level} ({level_names[level]})...")
+                print(f"  - LED indicators: {level} LED(s) on")
+                print(f"  - 4th LED: Blinking (activity indicator)")
+                fan.set_level(level)
+                time.sleep(5)  # Run for 5 seconds at each level
         
-        # Demo 3: Rotate 1 full revolution clockwise
-        print("3. Rotating 1 full revolution clockwise...")
-        motor.rotate_revolutions(1, speed=15, direction="cw")
-        time.sleep(1)
+        # Demo level cycling
+        print("\n\n--- Level Cycling Demo ---")
+        print("Cycling through all levels (press Ctrl+C to stop)...\n")
         
-        # Demo 4: Rotate 1 full revolution counter-clockwise
-        print("4. Rotating 1 full revolution counter-clockwise...")
-        motor.rotate_revolutions(1, speed=15, direction="ccw")
-        time.sleep(1)
+        for i in range(12):  # Cycle 3 times through all levels
+            current_level = fan.cycle_level()
+            time.sleep(3)
         
-        # Demo 5: Continuous rotation for 5 seconds
-        print("5. Continuous rotation for 5 seconds...")
-        motor.continuous_rotation(speed=15, direction="cw", duration=5)
-        
-        print("\nDemo completed!")
-        print(f"Final position: {motor.get_position()} steps")
+        print("\n\nDemo completed!")
         
     except KeyboardInterrupt:
-        print("\nDemo interrupted by user")
+        print("\n\nDemo interrupted by user")
     except Exception as e:
         print(f"\nError: {e}")
     finally:
-        motor.cleanup()
+        fan.cleanup()
         print("Cleanup complete")
