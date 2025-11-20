@@ -13,7 +13,15 @@ export interface SensorData {
 }
 
 export interface SensorMessage {
-  type: "sound" | "light" | "temp" | "humid" | "aqi" | "tvoc" | "eco2" | "people_count";
+  type:
+    | "sound"
+    | "light"
+    | "temp"
+    | "humid"
+    | "aqi"
+    | "tvoc"
+    | "eco2"
+    | "people_count";
   value: number;
 }
 
@@ -61,6 +69,8 @@ export const useMQTT = (
     });
 
     client.on("message", (topic, message) => {
+      console.log(`   Sensor data received: ${message.toString()}`);
+
       try {
         // Handle image data separately (binary)
         if (topic === "tippaphanun/5f29d93c/sensor/image") {
@@ -77,7 +87,6 @@ export const useMQTT = (
             const base64Image = message.toString("base64");
             const dataUrl = `data:image/jpeg;base64,${base64Image}`;
             setImageData(dataUrl);
-            console.log(`   Image converted to base64 data URL`);
           }
           return;
         }
@@ -88,6 +97,7 @@ export const useMQTT = (
 
         switch (topic) {
           case "tippaphanun/5f29d93c/sensor/data": {
+            console.log(`   Sensor data received: ${message.toString()}`);
             const sensorMsg = payload as SensorMessage;
 
             setSensorData((prev) => {
