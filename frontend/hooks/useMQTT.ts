@@ -1,52 +1,43 @@
 import { useEffect, useState, useRef } from "react";
 import mqtt, { MqttClient } from "mqtt";
 
-export interface SensorData {
-  temperature: number | null;
-  humidity: number | null;
-  aqi: number | null;
-  tvoc: number | null;
-  eco2: number | null;
-  sound: number | null;
-  ldr: number | null;
-  peopleCount: number | null;
-}
-
-export interface SensorMessage {
-  type:
-    | "sound"
-    | "light"
-    | "temp"
-    | "humid"
-    | "aqi"
-    | "tvoc"
-    | "eco2"
-    | "people_count";
-  value: number;
+export interface MotorStatus {
+  state:
+    | "open"
+    | "closed"
+    | "opening"
+    | "closing"
+    | "stopped"
+    | "partial"
+    | "idle"
+    | "error";
+  message: string;
+  timestamp: number;
+  position?: {
+    current_steps: number;
+    total_steps: number;
+    percentage: number;
+    is_moving: boolean;
+  };
 }
 
 interface UseMQTTReturn {
   isConnected: boolean;
-  sensorData: SensorData;
   imageData: string | null;
+  motorStatus: MotorStatus | null;
   error: string | null;
+  controlMotor: (
+    action: "open" | "close" | "stop" | "status",
+    speed?: "fast" | "normal"
+  ) => void;
 }
 
 export const useMQTT = (
   brokerUrl: string = "wss://test.mosquitto.org:8081"
 ): UseMQTTReturn => {
   const [isConnected, setIsConnected] = useState(false);
-  const [sensorData, setSensorData] = useState<SensorData>({
-    temperature: null,
-    humidity: null,
-    aqi: null,
-    tvoc: null,
-    eco2: null,
-    sound: null,
-    ldr: null,
-    peopleCount: null,
-  });
   const [imageData, setImageData] = useState<string | null>(null);
+  const [motorStatus, setMotorStatus] = useState<MotorStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientRef = useRef<MqttClient | null>(null);
 
@@ -63,14 +54,12 @@ export const useMQTT = (
       setIsConnected(true);
       setError(null);
 
-      // Subscribe to topics
-      client.subscribe("tippaphanun/5f29d93c/sensor/data", { qos: 1 });
+      // Subscribe to topics (only image and motor, no sensor data)
       client.subscribe("tippaphanun/5f29d93c/sensor/image", { qos: 1 });
+      client.subscribe("tippaphanun/5f29d93c/motor/status", { qos: 1 });
     });
 
     client.on("message", (topic, message) => {
-      console.log(`   Sensor data received: ${message.toString()}`);
-
       try {
         // Handle image data separately (binary)
         if (topic === "tippaphanun/5f29d93c/sensor/image") {
@@ -91,52 +80,15 @@ export const useMQTT = (
           return;
         }
 
-        const payload = JSON.parse(message.toString()) as SensorMessage;
-
-        // Log all incoming MQTT messages
-
-        switch (topic) {
-          case "tippaphanun/5f29d93c/sensor/data": {
-            console.log(`   Sensor data received: ${message.toString()}`);
-            const sensorMsg = payload as SensorMessage;
-
-            setSensorData((prev) => {
-              const updated = { ...prev };
-
-              switch (sensorMsg.type) {
-                case "temp":
-                  updated.temperature = sensorMsg.value;
-                  break;
-                case "humid":
-                  updated.humidity = sensorMsg.value;
-                  break;
-                case "aqi":
-                  updated.aqi = sensorMsg.value;
-                  break;
-                case "tvoc":
-                  updated.tvoc = sensorMsg.value;
-                  break;
-                case "eco2":
-                  updated.eco2 = sensorMsg.value;
-                  break;
-                case "sound":
-                  updated.sound = sensorMsg.value;
-                  break;
-                case "light":
-                  updated.ldr = sensorMsg.value;
-                  break;
-                case "people_count":
-                  updated.peopleCount = sensorMsg.value;
-                  break;
-              }
-
-              return updated;
-            });
-            break;
-          }
-          default:
-            console.log(`   ⚠️  Unknown topic: ${topic}`);
+        // Handle motor status
+        if (topic === "tippaphanun/5f29d93c/motor/status") {
+          console.log(`   Motor status received: ${message.toString()}`);
+          const motorMsg = JSON.parse(message.toString()) as MotorStatus;
+          setMotorStatus(motorMsg);
+          return;
         }
+
+        console.log(`   ⚠️  Unknown topic: ${topic}`);
       } catch (err) {
         console.error("❌ Error parsing message:", err);
         console.error("   Raw message:", message.toString());
@@ -166,10 +118,42 @@ export const useMQTT = (
     };
   }, [brokerUrl]);
 
+  const controlMotor = (
+    action: "open" | "close" | "stop" | "status",
+    speed: "fast" | "normal" = "fast"
+  ) => {
+    const client = clientRef.current;
+    if (!client || !client.connected) {
+      console.error("MQTT client not connected");
+      setError("Cannot control motor: Not connected to MQTT broker");
+      return;
+    }
+
+    const command = {
+      action,
+      speed,
+    };
+
+    client.publish(
+      "tippaphanun/5f29d93c/motor/control",
+      JSON.stringify(command),
+      { qos: 1 },
+      (err) => {
+        if (err) {
+          console.error("Failed to publish motor command:", err);
+          setError(`Failed to send motor command: ${err.message}`);
+        } else {
+          console.log(`Motor command sent: ${action} (${speed})`);
+        }
+      }
+    );
+  };
+
   return {
     isConnected,
-    sensorData,
     imageData,
+    motorStatus,
     error,
+    controlMotor,
   };
 };

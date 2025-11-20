@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import {
   LineChart,
   Line,
@@ -11,15 +11,11 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-
-interface DataPoint {
-  timestamp: string;
-  value: number;
-}
+import { useFirebaseChartData } from "@/hooks/useFirebaseChartData";
 
 interface SensorChartProps {
   title: string;
-  data: number | null;
+  sensorType: string;
   unit: string;
   color: string;
   maxDataPoints?: number;
@@ -107,69 +103,80 @@ export const SensorCard: React.FC<SensorCardProps> = ({
 // Sensor Chart Component
 export const SensorChart: React.FC<SensorChartProps> = ({
   title,
-  data,
+  sensorType,
   unit,
   color,
   maxDataPoints = 20,
 }) => {
-  const [chartData, setChartData] = useState<DataPoint[]>([]);
-  const prevDataRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (data === null || data === prevDataRef.current) return;
-
-    prevDataRef.current = data;
-    const now = new Date();
-    const timeString = now.toLocaleTimeString();
-
-    const newDataPoint = { timestamp: timeString, value: data };
-
-    queueMicrotask(() => {
-      setChartData((prevChartData) => {
-        const newData = [...prevChartData, newDataPoint];
-        return newData.slice(-maxDataPoints);
-      });
-    });
-  }, [data, maxDataPoints]);
+  const { chartData, isLoading, error } = useFirebaseChartData(
+    sensorType,
+    maxDataPoints
+  );
 
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl shadow-xl shadow-purple-500/10 dark:shadow-purple-500/5 p-4 border border-gray-200/50 dark:border-gray-700/50 hover:shadow-2xl hover:shadow-purple-500/20 dark:hover:shadow-purple-500/10 transition-all duration-300">
-      <h3 className="text-base font-black text-gray-800 dark:text-gray-100 mb-4 bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
-        {title}
-      </h3>
-      <ResponsiveContainer width="100%" height={160}>
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-          <XAxis
-            dataKey="timestamp"
-            stroke="#9CA3AF"
-            fontSize={10}
-            fontWeight={600}
-            tickFormatter={(value) => value.split(":").slice(0, 2).join(":")}
-          />
-          <YAxis stroke="#9CA3AF" fontSize={10} fontWeight={600} unit={unit} />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#1F2937",
-              border: "2px solid #374151",
-              borderRadius: "1rem",
-              color: "#F9FAFB",
-              fontWeight: 600,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-            }}
-          />
-          <Legend wrapperStyle={{ fontWeight: 600 }} />
-          <Line
-            type="monotone"
-            dataKey="value"
-            stroke={color}
-            strokeWidth={3}
-            dot={{ fill: color, strokeWidth: 2, r: 4 }}
-            activeDot={{ r: 6, strokeWidth: 2 }}
-            name={title}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-black text-gray-800 dark:text-gray-100 bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+          {title}
+        </h3>
+        {isLoading && (
+          <span className="text-xs text-gray-500 animate-pulse">
+            Loading...
+          </span>
+        )}
+        {error && (
+          <span className="text-xs text-red-500">Error loading data</span>
+        )}
+      </div>
+
+      {chartData.length === 0 && !isLoading ? (
+        <div className="h-[160px] flex items-center justify-center text-gray-500 text-sm">
+          No historical data available
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={160}>
+          <LineChart data={chartData}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#374151"
+              opacity={0.3}
+            />
+            <XAxis
+              dataKey="timestamp"
+              stroke="#9CA3AF"
+              fontSize={10}
+              fontWeight={600}
+              tickFormatter={(value) => value.split(":").slice(0, 2).join(":")}
+            />
+            <YAxis
+              stroke="#9CA3AF"
+              fontSize={10}
+              fontWeight={600}
+              unit={unit}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#1F2937",
+                border: "2px solid #374151",
+                borderRadius: "1rem",
+                color: "#F9FAFB",
+                fontWeight: 600,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+              }}
+            />
+            <Legend wrapperStyle={{ fontWeight: 600 }} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={3}
+              dot={{ fill: color, strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, strokeWidth: 2 }}
+              name={title}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 };

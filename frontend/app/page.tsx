@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useMQTT } from "@/hooks/useMQTT";
+import { useFirebaseSensors } from "@/hooks/useFirebaseSensors";
 import { SensorCard } from "@/components/SensorCard";
 import { CrowdMonitor } from "@/components/CrowdMonitor";
 import { SensorChart } from "@/components/SensorChart";
 import { ImageMonitor } from "@/components/ImageMonitor";
+import MotorControl from "@/components/MotorControl";
 import {
   Thermometer,
   Droplets,
@@ -19,7 +21,21 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
-  const { isConnected, sensorData, imageData, error } = useMQTT();
+  // Firebase for sensor data
+  const {
+    sensorData,
+    error: firebaseError,
+    isLoading: isLoadingFirebase,
+  } = useFirebaseSensors();
+
+  // MQTT for images and motor control
+  const {
+    isConnected,
+    imageData,
+    motorStatus,
+    error: mqttError,
+    controlMotor,
+  } = useMQTT();
   const [currentTime, setCurrentTime] = useState<string>("");
 
   useEffect(() => {
@@ -93,23 +109,29 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Error Alert */}
-              {error && (
+              {/* Error Alerts */}
+              {(mqttError || firebaseError) && (
                 <div className="mt-4 p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-l-4 border-amber-500 dark:border-amber-400 rounded-lg shadow-md backdrop-blur-sm">
                   <p className="text-amber-900 dark:text-amber-200 text-sm font-semibold flex items-center gap-2">
                     <span className="text-base">⚠️</span>
-                    {error}
+                    {mqttError && `MQTT: ${mqttError}`}
+                    {mqttError && firebaseError && " | "}
+                    {firebaseError && `Firebase: ${firebaseError}`}
                   </p>
                 </div>
               )}
-              <Image
-                src="/pic1.svg"
-                alt="Campus Monitor"
-                width={560}
-                height={300}
-                className="relative mt-12"
-              />
+
+              {/* Loading State */}
+              {isLoadingFirebase && (
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg">
+                  <p className="text-blue-900 dark:text-blue-200 text-sm font-semibold flex items-center gap-2">
+                    <span className="animate-spin">🔄</span>
+                    Loading sensor data from Firebase...
+                  </p>
+                </div>
+              )}
             </div>
+
             {/* Image Monitor */}
             <div className="w-1/2">
               <ImageMonitor imageData={imageData} isConnected={isConnected} />
@@ -191,11 +213,11 @@ export default function Dashboard() {
               <SensorCard
                 title="Light Intensity"
                 value={sensorData.ldr ?? "--"}
-                unit="lux"
+                unit="%"
                 icon={Sun}
                 status={
                   sensorData.ldr !== null
-                    ? sensorData.ldr < 200
+                    ? sensorData.ldr < 40
                       ? "warning"
                       : "normal"
                     : "normal"
@@ -280,41 +302,50 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Motor Control Section */}
+        <div className="mb-5">
+          <MotorControl
+            motorStatus={motorStatus}
+            onControl={controlMotor}
+            isConnected={isConnected}
+          />
+        </div>
+
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           <SensorChart
             title="Temperature History"
-            data={sensorData.temperature}
+            sensorType="temp"
             unit="°C"
             color="#ef4444"
           />
           <SensorChart
             title="Humidity History"
-            data={sensorData.humidity}
+            sensorType="humid"
             unit="%"
             color="#3b82f6"
           />
           <SensorChart
             title="AQI History"
-            data={sensorData.aqi}
+            sensorType="aqi"
             unit=""
             color="#8b5cf6"
           />
           <SensorChart
             title="TVOC History"
-            data={sensorData.tvoc}
+            sensorType="tvoc"
             unit="ppb"
             color="#10b981"
           />
           <SensorChart
             title="eCO2 History"
-            data={sensorData.eco2}
+            sensorType="eco2"
             unit="ppm"
             color="#f59e0b"
           />
           <SensorChart
             title="Sound Detection History"
-            data={sensorData.sound}
+            sensorType="sound"
             unit=""
             color="#ec4899"
           />
