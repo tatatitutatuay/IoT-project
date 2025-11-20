@@ -8,15 +8,12 @@ import { SensorCard } from "@/components/SensorCard";
 import { CrowdMonitor } from "@/components/CrowdMonitor";
 import { SensorChart } from "@/components/SensorChart";
 import { ImageMonitor } from "@/components/ImageMonitor";
-import MotorControl from "@/components/MotorControl";
 import {
   Thermometer,
   Droplets,
   Wind,
   Volume2,
   Sun,
-  Wifi,
-  WifiOff,
   Activity,
 } from "lucide-react";
 
@@ -28,14 +25,8 @@ export default function Dashboard() {
     isLoading: isLoadingFirebase,
   } = useFirebaseSensors();
 
-  // MQTT for images and motor control
-  const {
-    isConnected,
-    imageData,
-    motorStatus,
-    error: mqttError,
-    controlMotor,
-  } = useMQTT();
+  // MQTT for images
+  const { isConnected, imageData, error: mqttError } = useMQTT();
   const [currentTime, setCurrentTime] = useState<string>("");
 
   useEffect(() => {
@@ -107,6 +98,12 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+                <Image
+                  src="/pic1.svg"
+                  alt="Campus Logo"
+                  width={540}
+                  height={300}
+                />
               </div>
 
               {/* Error Alerts */}
@@ -300,15 +297,6 @@ export default function Dashboard() {
               />
             </div>
           </div>
-        </div>
-
-        {/* Motor Control Section */}
-        <div className="mb-5">
-          <MotorControl
-            motorStatus={motorStatus}
-            onControl={controlMotor}
-            isConnected={isConnected}
-          />
         </div>
 
         {/* Charts Section */}

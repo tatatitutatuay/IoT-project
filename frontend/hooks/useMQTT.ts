@@ -1,35 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import mqtt, { MqttClient } from "mqtt";
 
-export interface MotorStatus {
-  state:
-    | "open"
-    | "closed"
-    | "opening"
-    | "closing"
-    | "stopped"
-    | "partial"
-    | "idle"
-    | "error";
-  message: string;
-  timestamp: number;
-  position?: {
-    current_steps: number;
-    total_steps: number;
-    percentage: number;
-    is_moving: boolean;
-  };
-}
-
 interface UseMQTTReturn {
   isConnected: boolean;
   imageData: string | null;
-  motorStatus: MotorStatus | null;
   error: string | null;
-  controlMotor: (
-    action: "open" | "close" | "stop" | "status",
-    speed?: "fast" | "normal"
-  ) => void;
 }
 
 export const useMQTT = (
@@ -37,7 +12,6 @@ export const useMQTT = (
 ): UseMQTTReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);
-  const [motorStatus, setMotorStatus] = useState<MotorStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientRef = useRef<MqttClient | null>(null);
 
@@ -54,9 +28,8 @@ export const useMQTT = (
       setIsConnected(true);
       setError(null);
 
-      // Subscribe to topics (only image and motor, no sensor data)
+      // Subscribe to image topic only
       client.subscribe("tippaphanun/5f29d93c/sensor/image", { qos: 1 });
-      client.subscribe("tippaphanun/5f29d93c/motor/status", { qos: 1 });
     });
 
     client.on("message", (topic, message) => {
@@ -77,14 +50,6 @@ export const useMQTT = (
             const dataUrl = `data:image/jpeg;base64,${base64Image}`;
             setImageData(dataUrl);
           }
-          return;
-        }
-
-        // Handle motor status
-        if (topic === "tippaphanun/5f29d93c/motor/status") {
-          console.log(`   Motor status received: ${message.toString()}`);
-          const motorMsg = JSON.parse(message.toString()) as MotorStatus;
-          setMotorStatus(motorMsg);
           return;
         }
 
@@ -118,42 +83,9 @@ export const useMQTT = (
     };
   }, [brokerUrl]);
 
-  const controlMotor = (
-    action: "open" | "close" | "stop" | "status",
-    speed: "fast" | "normal" = "fast"
-  ) => {
-    const client = clientRef.current;
-    if (!client || !client.connected) {
-      console.error("MQTT client not connected");
-      setError("Cannot control motor: Not connected to MQTT broker");
-      return;
-    }
-
-    const command = {
-      action,
-      speed,
-    };
-
-    client.publish(
-      "tippaphanun/5f29d93c/motor/control",
-      JSON.stringify(command),
-      { qos: 1 },
-      (err) => {
-        if (err) {
-          console.error("Failed to publish motor command:", err);
-          setError(`Failed to send motor command: ${err.message}`);
-        } else {
-          console.log(`Motor command sent: ${action} (${speed})`);
-        }
-      }
-    );
-  };
-
   return {
     isConnected,
     imageData,
-    motorStatus,
     error,
-    controlMotor,
   };
 };
