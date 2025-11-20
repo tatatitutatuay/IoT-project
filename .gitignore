@@ -21,4 +21,11 @@ rad.json
 #Test results file
 TestResults.xml
 
+# Firebase credentials
 raspberry/logger/serviceAccountKey.json
+raspberry/sensor/serviceAccountKey.json
+frontend/.env.local
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
