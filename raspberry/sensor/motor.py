@@ -1,27 +1,20 @@
 """
-28BYJ-48 Stepper Motor Fan Control with ULN2003AN Driver
-Control module for 28BYJ-48 stepper motor as a fan with speed levels (OFF, 1, 2, 3)
-LED indicators show current fan speed level
+28BYJ-48 Stepper Motor Control with ULN2003AN Driver
+Simple open/close control for window/door automation
+Fast operation mode for quick response
 """
 
 import RPi.GPIO as GPIO
 import time
 import threading
 
-class FanMotor:
+class Motor:
     """
-    Control class for 28BYJ-48 stepper motor as a fan with speed levels
-    
-    Fan Modes:
-    - OFF (0): Fan stopped, all LEDs off
-    - Level 1: Slow speed, LED 1 on
-    - Level 2: Medium speed, LED 1-2 on
-    - Level 3: Fast speed, LED 1-3 on
-    
-    The 4th LED blinks when fan is running
+    Control class for 28BYJ-48 stepper motor for open/close operations
+    Optimized for fast, reliable movement without LED control concerns
     """
     
-    # Step sequences for smooth operation
+    # Half-step sequence for smooth operation
     HALF_STEP_SEQ = [
         [1, 0, 0, 0],
         [1, 1, 0, 0],
@@ -33,34 +26,28 @@ class FanMotor:
         [1, 0, 0, 1]
     ]
     
-    # Speed settings (RPM for each level)
-    SPEED_LEVELS = {
-        0: 0,      # OFF
-        1: 5,      # Slow
-        2: 10,     # Medium
-        3: 15      # Fast
-    }
-    
     def __init__(self, 
                  in1_pin: int = 5, 
                  in2_pin: int = 6, 
                  in3_pin: int = 12, 
-                 in4_pin: int = 16):
+                 in4_pin: int = 16,
+                 steps_to_open: int = 2048):
         """
-        Initialize the fan motor controller
+        Initialize the motor controller
         
         Args:
-            in1_pin: GPIO pin for IN1 on ULN2003AN (default: GPIO5)
-            in2_pin: GPIO pin for IN2 on ULN2003AN (default: GPIO6)
-            in3_pin: GPIO pin for IN3 on ULN2003AN (default: GPIO12)
-            in4_pin: GPIO pin for IN4 on ULN2003AN (default: GPIO16)
+            in1_pin: GPIO pin for IN1 (default: GPIO5)
+            in2_pin: GPIO pin for IN2 (default: GPIO6)
+            in3_pin: GPIO pin for IN3 (default: GPIO12)
+            in4_pin: GPIO pin for IN4 (default: GPIO16)
+            steps_to_open: Number of steps for full open (default: 2048 = half revolution)
         """
         self.pins = [in1_pin, in2_pin, in3_pin, in4_pin]
         self.step_sequence = self.HALF_STEP_SEQ
-        self.steps_per_rev = 4096
-        self.current_level = 0
-        self.is_running = False
-        self.fan_thread = None
+        self.steps_to_open = steps_to_open
+        self.current_position = 0  # 0 = closed, steps_to_open = fully open
+        self.is_moving = False
+        self.stop_flag = False
         
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
@@ -70,179 +57,227 @@ class FanMotor:
             GPIO.setup(pin, GPIO.OUT)
             GPIO.output(pin, GPIO.LOW)
         
-        print(f"FanMotor initialized on pins {self.pins}")
-        print("Fan Levels: 0 (OFF), 1 (Slow), 2 (Medium), 3 (Fast)")
+        print(f"Motor initialized on pins {self.pins}")
+        print(f"Steps for full open: {self.steps_to_open}")
     
     def _set_step(self, step_pattern: list):
         """Set the GPIO pins according to step pattern"""
         for pin, state in zip(self.pins, step_pattern):
             GPIO.output(pin, state)
     
-    def _update_led_indicator(self):
-        """Update LED pattern based on current fan level (LEDs 1-3 indicate speed)"""
-        if self.current_level == 0:
-            # OFF - All LEDs off
-            self._set_step([0, 0, 0, 0])
-        elif self.current_level == 1:
-            # Level 1 - Only LED 1 on (slow)
-            led_pattern = [1, 0, 0, 0]
-            self._set_step(led_pattern)
-        elif self.current_level == 2:
-            # Level 2 - LED 1 and 2 on (medium)
-            led_pattern = [1, 1, 0, 0]
-            self._set_step(led_pattern)
-        elif self.current_level == 3:
-            # Level 3 - LED 1, 2, and 3 on (fast)
-            led_pattern = [1, 1, 1, 0]
-            self._set_step(led_pattern)
-    
-    def _run_motor_loop(self):
-        """Internal method to run motor continuously"""
-        speed = self.SPEED_LEVELS[self.current_level]
-        delay = 60.0 / (speed * self.steps_per_rev) if speed > 0 else 0
-        
-        led_blink_state = False
-        step_counter = 0
-        
-        while self.is_running:
-            # Rotate through step sequence
-            for step_pattern in self.step_sequence:
-                if not self.is_running:
-                    break
-                
-                # Create pattern with speed LEDs (1-3) and blinking activity LED (4)
-                pattern = step_pattern.copy()
-                
-                # Set speed indicator LEDs (1-3)
-                if self.current_level >= 1:
-                    pattern[0] = 1
-                if self.current_level >= 2:
-                    pattern[1] = 1
-                if self.current_level >= 3:
-                    pattern[2] = 1
-                
-                # Blink 4th LED to show fan is active (toggle every 8 steps)
-                if step_counter % 8 == 0:
-                    led_blink_state = not led_blink_state
-                pattern[3] = 1 if led_blink_state else 0
-                
-                self._set_step(pattern)
-                time.sleep(delay)
-                step_counter += 1
-        
-        # When stopped, show only the level indicator LEDs
-        self._update_led_indicator()
-    
-    def set_level(self, level: int):
+    def _move_steps(self, steps: int, delay: float = 0.0005):
         """
-        Set fan speed level
+        Move motor by specified steps (fast operation)
         
         Args:
-            level: Speed level (0=OFF, 1=Slow, 2=Medium, 3=Fast)
+            steps: Number of steps (positive = open direction, negative = close direction)
+            delay: Delay between steps (0.0005 = very fast, 0.001 = fast, 0.002 = normal)
         """
-        if level not in [0, 1, 2, 3]:
-            print(f"Invalid level {level}. Use 0 (OFF), 1 (Slow), 2 (Medium), or 3 (Fast)")
-            return
+        self.is_moving = True
+        self.stop_flag = False
         
-        # Stop current operation
-        was_running = self.is_running
-        if was_running:
-            self.stop()
-            time.sleep(0.1)  # Brief pause for thread to stop
+        step_count = abs(steps)
+        direction = 1 if steps > 0 else -1
         
-        self.current_level = level
+        for _ in range(step_count):
+            if self.stop_flag:
+                break
+            
+            sequence = self.step_sequence if direction > 0 else self.step_sequence[::-1]
+            for step_pattern in sequence:
+                if self.stop_flag:
+                    break
+                self._set_step(step_pattern)
+                time.sleep(delay)
+            
+            self.current_position += direction
+            
+            # Limit position
+            if self.current_position < 0:
+                self.current_position = 0
+            elif self.current_position > self.steps_to_open:
+                self.current_position = self.steps_to_open
         
-        if level == 0:
-            print("Fan: OFF")
-            self._update_led_indicator()
-        else:
-            level_names = {1: "Slow", 2: "Medium", 3: "Fast"}
-            print(f"Fan: Level {level} ({level_names[level]}) - RPM: {self.SPEED_LEVELS[level]}")
-            self.start()
+        # Turn off coils to save power and reduce heat
+        self._set_step([0, 0, 0, 0])
+        self.is_moving = False
     
-    def start(self):
-        """Start the fan at current level"""
-        if self.current_level == 0:
-            print("Cannot start: Fan level is 0 (OFF). Use set_level(1-3) first.")
-            return
+    def open(self, speed: str = "fast"):
+        """
+        Open to full position
         
-        if not self.is_running:
-            self.is_running = True
-            self.fan_thread = threading.Thread(target=self._run_motor_loop, daemon=True)
-            self.fan_thread.start()
-            print("Fan started")
+        Args:
+            speed: "very_fast", "fast", "normal" (default: "fast")
+        """
+        if self.is_moving:
+            print("Motor is already moving")
+            return False
+        
+        steps_needed = self.steps_to_open - self.current_position
+        
+        if steps_needed <= 0:
+            print("Already fully open")
+            return True
+        
+        # Set speed
+        delay_map = {
+            "very_fast": 0.0005,
+            "fast": 0.001,
+            "normal": 0.002
+        }
+        delay = delay_map.get(speed, 0.001)
+        
+        print(f"Opening... (moving {steps_needed} steps at {speed} speed)")
+        self._move_steps(steps_needed, delay)
+        print(f"Open complete. Position: {self.current_position}/{self.steps_to_open}")
+        return True
+    
+    def close(self, speed: str = "fast"):
+        """
+        Close to starting position
+        
+        Args:
+            speed: "very_fast", "fast", "normal" (default: "fast")
+        """
+        if self.is_moving:
+            print("Motor is already moving")
+            return False
+        
+        steps_needed = -self.current_position
+        
+        if steps_needed >= 0:
+            print("Already fully closed")
+            return True
+        
+        # Set speed
+        delay_map = {
+            "very_fast": 0.0005,
+            "fast": 0.001,
+            "normal": 0.002
+        }
+        delay = delay_map.get(speed, 0.001)
+        
+        print(f"Closing... (moving {abs(steps_needed)} steps at {speed} speed)")
+        self._move_steps(steps_needed, delay)
+        print(f"Close complete. Position: {self.current_position}/{self.steps_to_open}")
+        return True
+    
+    def open_threaded(self, speed: str = "fast"):
+        """Open in background thread (non-blocking)"""
+        if self.is_moving:
+            print("Motor is already moving")
+            return False
+        thread = threading.Thread(target=self.open, args=(speed,), daemon=True)
+        thread.start()
+        return True
+    
+    def close_threaded(self, speed: str = "fast"):
+        """Close in background thread (non-blocking)"""
+        if self.is_moving:
+            print("Motor is already moving")
+            return False
+        thread = threading.Thread(target=self.close, args=(speed,), daemon=True)
+        thread.start()
+        return True
     
     def stop(self):
-        """Stop the fan"""
-        if self.is_running:
-            self.is_running = False
-            if self.fan_thread:
-                self.fan_thread.join(timeout=1)
-            self.current_level = 0
-            self._set_step([0, 0, 0, 0])
-            print("Fan stopped")
+        """Emergency stop"""
+        self.stop_flag = True
+        self._set_step([0, 0, 0, 0])
+        print(f"Motor stopped at position {self.current_position}/{self.steps_to_open}")
     
-    def get_level(self) -> int:
-        """Get current fan speed level"""
-        return self.current_level
+    def reset_position(self):
+        """Reset position counter (use when motor is at closed position)"""
+        self.current_position = 0
+        print("Position reset to 0 (closed)")
     
-    def is_fan_running(self) -> bool:
-        """Check if fan is currently running"""
-        return self.is_running
+    def get_position(self) -> dict:
+        """Get current position info"""
+        percentage = (self.current_position / self.steps_to_open) * 100
+        return {
+            "current_steps": self.current_position,
+            "total_steps": self.steps_to_open,
+            "percentage": round(percentage, 1),
+            "is_moving": self.is_moving
+        }
     
-    def cycle_level(self):
-        """Cycle through fan levels: 0 -> 1 -> 2 -> 3 -> 0"""
-        next_level = (self.current_level + 1) % 4
-        self.set_level(next_level)
-        return next_level
+    def is_open(self) -> bool:
+        """Check if fully open"""
+        return self.current_position >= self.steps_to_open
+    
+    def is_closed(self) -> bool:
+        """Check if fully closed"""
+        return self.current_position <= 0
     
     def cleanup(self):
         """Clean up GPIO resources"""
         self.stop()
-        time.sleep(0.2)
+        time.sleep(0.1)
         GPIO.cleanup(self.pins)
-        print("FanMotor GPIO cleaned up")
+        print("Motor GPIO cleaned up")
 
 
 # Example usage and testing
 if __name__ == "__main__":
-    print("28BYJ-48 Fan Motor Control Demo")
+    print("28BYJ-48 Motor Control - Open/Close Demo")
     print("=" * 50)
     
-    # Initialize fan motor
-    fan = FanMotor()
+    # Initialize motor
+    motor = Motor(steps_to_open=2048)  # 2048 steps = half revolution
     
     try:
-        print("\n--- Fan Control Demo ---\n")
+        print("\n--- Fast Open/Close Demo ---\n")
         
-        # Test each speed level
-        for level in range(4):
-            if level == 0:
-                print("\nSetting fan to OFF...")
-                fan.set_level(0)
-                time.sleep(3)
-            else:
-                level_names = {1: "Slow", 2: "Medium", 3: "Fast"}
-                print(f"\nSetting fan to Level {level} ({level_names[level]})...")
-                print(f"  - LED indicators: {level} LED(s) on")
-                print(f"  - 4th LED: Blinking (activity indicator)")
-                fan.set_level(level)
-                time.sleep(5)  # Run for 5 seconds at each level
+        # Test 1: Fast open
+        print("Test 1: Opening at FAST speed...")
+        motor.open(speed="fast")
+        print(f"Position: {motor.get_position()}")
+        time.sleep(1)
         
-        # Demo level cycling
-        print("\n\n--- Level Cycling Demo ---")
-        print("Cycling through all levels (press Ctrl+C to stop)...\n")
+        # Test 2: Fast close
+        print("\nTest 2: Closing at FAST speed...")
+        motor.close(speed="fast")
+        print(f"Position: {motor.get_position()}")
+        time.sleep(1)
         
-        for i in range(12):  # Cycle 3 times through all levels
-            current_level = fan.cycle_level()
-            time.sleep(3)
+        # Test 3: Very fast open
+        print("\nTest 3: Opening at VERY FAST speed...")
+        motor.open(speed="very_fast")
+        print(f"Position: {motor.get_position()}")
+        time.sleep(1)
+        
+        # Test 4: Very fast close
+        print("\nTest 4: Closing at VERY FAST speed...")
+        motor.close(speed="very_fast")
+        print(f"Position: {motor.get_position()}")
+        time.sleep(1)
+        
+        # Test 5: Threaded operation (non-blocking)
+        print("\nTest 5: Non-blocking operation...")
+        print("Opening in background...")
+        motor.open_threaded(speed="fast")
+        
+        # Do other things while motor moves
+        for i in range(5):
+            print(f"  Doing other work... {i+1}")
+            time.sleep(0.5)
+        
+        # Wait for completion
+        while motor.is_moving:
+            time.sleep(0.1)
+        print("Background open complete!")
+        
+        time.sleep(1)
+        motor.close(speed="fast")
         
         print("\n\nDemo completed!")
+        print(f"Final position: {motor.get_position()}")
         
     except KeyboardInterrupt:
         print("\n\nDemo interrupted by user")
+        motor.stop()
     except Exception as e:
         print(f"\nError: {e}")
     finally:
-        fan.cleanup()
+        motor.cleanup()
         print("Cleanup complete")
