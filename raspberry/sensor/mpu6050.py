@@ -7,7 +7,7 @@ import json
 import paho.mqtt.client as mqtt
 
 # ---------------------- MQTT SETUP ----------------------
-MQTT_BROKER = "test.mosquitto.org"      # เปลี่ยนเป็น IP Server ของคุณหากจำเป็น
+MQTT_BROKER = "test.mosquitto.org" # เปลี่ยนเป็น IP Server ของคุณหากจำเป็น
 MQTT_PORT = 1883
 MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data" # หัวข้อสำหรับส่งข้อมูล
 
