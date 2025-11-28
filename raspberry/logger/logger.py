@@ -1,5 +1,6 @@
 import json
 import time
+import os
 from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
@@ -7,7 +8,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ---------- Firebase setup ----------
-cred = credentials.Certificate("serviceAccountKey.json")
+# Get the path to the folder where logger.py is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+cred_path = os.path.join(BASE_DIR, "serviceAccountKey.json")
+cred = credentials.Certificate(cred_path)
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
