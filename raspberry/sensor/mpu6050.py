@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 # เกณฑ์การตรวจจับ (Threshold)
 # ค่านี้คือความเร่งสูงสุดที่ยอมรับได้เมื่อวัตถุ "นิ่ง"
 # หากค่าความเร่ง (ในหน่วย m/s^2) เกินค่านี้ จะถือว่ามีการเคลื่อนที่
-MOTION_THRESHOLD_ACCEL = 0.5  # m/s^2 (ประมาณ 0.05g)
+MOTION_THRESHOLD_ACCEL = 1.9  # m/s^2 (ประมาณ 0.05g)
 
 # ---------------------- MQTT SETUP ----------------------
 MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
