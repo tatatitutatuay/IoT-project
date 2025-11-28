@@ -1,71 +1,87 @@
 import time
 import board
 import busio
-# นำเข้าไลบรารี MPU6050 ของ Adafruit
-import adafruit_mpu6050 
+import adafruit_mpu6050
 import json
 import paho.mqtt.client as mqtt
 
+# ---------------------- CONFIGURATION ----------------------
+# เกณฑ์การตรวจจับ (Threshold)
+# ค่านี้คือความเร่งสูงสุดที่ยอมรับได้เมื่อวัตถุ "นิ่ง"
+# หากค่าความเร่ง (ในหน่วย m/s^2) เกินค่านี้ จะถือว่ามีการเคลื่อนที่
+MOTION_THRESHOLD_ACCEL = 0.5  # m/s^2 (ประมาณ 0.05g)
+
 # ---------------------- MQTT SETUP ----------------------
-MQTT_BROKER = "test.mosquitto.org" # เปลี่ยนเป็น IP Server ของคุณหากจำเป็น
+MQTT_BROKER = "test.mosquitto.org"
 MQTT_PORT = 1883
-MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data" # หัวข้อสำหรับส่งข้อมูล
+MQTT_TOPIC = "tippaphanun/5f29d93c/door_status" # เปลี่ยน topic เพื่อส่งสถานะประตูโดยเฉพาะ
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
+client.loop_start() # ให้ MQTT ทำงานใน background
 # --------------------------------------------------------
 
-def payload_mpu(type: str, value):
+def publish_door_status(is_moving: bool):
+    """ฟังก์ชันสำหรับส่งสถานะประตูผ่าน MQTT"""
+    status = 1 if is_moving else 0
+    
     payload = {
-        "type": type,
-        "value": value
+        "type": "door_open",
+        "value": status
     }
-    client.publish(MQTT_TOPIC, json.dumps(payload))
+    client.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
+    print(f"-> Published Door Status: {status}")
+
 # --- 1. เริ่มต้นการเชื่อมต่อ I2C ---
-i2c = busio.I2C(board.SCL, board.SDA)
+try:
+    i2c = busio.I2C(board.SCL, board.SDA)
+except Exception as e:
+    print(f"❌ Error setting up I2C bus: {e}")
+    exit()
 
 # --- 2. เริ่มต้นการเชื่อมต่อเซ็นเซอร์ MPU6050 ---
 try:
-    # MPU6050 ใช้ I2C Address มาตรฐาน 0x68 หรือ 0x69 (ขึ้นอยู่กับขา AD0)
-    # ไลบรารี adafruit_mpu6050 จะพยายามค้นหา Address โดยอัตโนมัติ
     mpu = adafruit_mpu6050.MPU6050(i2c)
     print("✅ พบ MPU-6050 (Motion Sensor)!")
 except Exception as e:
     print(f"❌ ไม่พบ MPU-6050: {e}")
+    client.loop_stop()
     exit()
-# --- 3. วนลูปอ่านค่า ---
-try:
-    while True:
-        # อ่านค่าจาก MPU-6050
-        acceleration = mpu.acceleration # (x, y, z) ในหน่วย m/s^2
-        gyro = mpu.gyro                # (x, y, z) ในหน่วย rad/s
-        temperature = mpu.temperature # อุณหภูมิในหน่วย °C
 
-        print(f"อุณหภูมิ: {temperature:.1f} C")
-        print(f"Accel (m/s²): X={acceleration[0]:.2f}, Y={acceleration[1]:.2f}, Z={acceleration[2]:.2f}")
-        print(f"Gyro (rad/s): X={gyro[0]:.2f}, Y={gyro[1]:.2f}, Z={gyro[2]:.2f}")
-        print("-" * 30)
+# --- 3. วนลูปตรวจจับ ---
+try:
+    last_motion_state = False # สถานะการเคลื่อนไหวล่าสุด
+    print(f"Starting door motion detection. Threshold: {MOTION_THRESHOLD_ACCEL} m/s^2")
+    
+    while True:
+        # 3.1 อ่านค่าความเร่งในแกน X
+        # Acceleration เป็น tuple: (X, Y, Z)
+        accel_x = mpu.acceleration[0]
         
-        # ส่งค่าไปยัง MQTT
-        # ส่งอุณหภูมิ
-        payload_mpu("temp_mpu", round(temperature, 2))
+        # 3.2 คำนวณค่าสัมบูรณ์ (Absolute Value) เพื่อไม่สนใจทิศทาง
+        abs_accel_x = abs(accel_x)
         
-        # ส่งค่า Accelerometer
-        payload_mpu("accel", {
-            "x": round(acceleration[0], 3),
-            "y": round(acceleration[1], 3),
-            "z": round(acceleration[2], 3)
-        })
+        # 3.3 ตรวจสอบการเคลื่อนไหว
+        is_moving_now = abs_accel_x > MOTION_THRESHOLD_ACCEL
         
-        # ส่งค่า Gyroscope
-        payload_mpu("gyro", {
-            "x": round(gyro[0], 3),
-            "y": round(gyro[1], 3),
-            "z": round(gyro[2], 3)
-        })
+        print(f"Accel X: {accel_x:.3f} m/s² | Moving: {is_moving_now}")
+
+        # 3.4 ตรวจจับการเปลี่ยนแปลงสถานะและส่ง MQTT
+        if is_moving_now != last_motion_state:
+            publish_door_status(is_moving_now)
+            last_motion_state = is_moving_now
         
-        time.sleep(0.5) # อ่านค่าทุก 0.5 วินาที สำหรับเซนเซอร์จับความเคลื่อนไหว
+        # 3.5 รักษาสถานะการเคลื่อนไหวไว้ชั่วขณะ
+        if is_moving_now:
+            time.sleep(0.1) # ตรวจสอบถี่ขึ้นเมื่อมีการเคลื่อนไหว
+        else:
+            time.sleep(0.5) # ตรวจสอบช้าลงเมื่อนิ่ง
+
 except KeyboardInterrupt:
     print("\n👋 หยุดการทำงาน")
+except Exception as e:
+    print(f"\n❌ เกิดข้อผิดพลาดใน Main Loop: {e}")
 finally:
-    print("🗑️ ปิดการเชื่อมต่อ I2C")
+    client.loop_stop()
+    client.disconnect()
+    print("🗑️ ปิดการเชื่อมต่อ I2C และ MQTT")
