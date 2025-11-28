@@ -34,7 +34,7 @@ try:
     
     GPIO.setup(PIN_D0, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-    if GPIO.input(PIN_D0) == GPIO.HIGH:
+    while GPIO.input(PIN_D0) == GPIO.HIGH:
         print("✅ พบเซ็นเซอร์เสียง (Sound Sensor)!")
 
     # เพิ่ม Event Detection (Interrupt)
