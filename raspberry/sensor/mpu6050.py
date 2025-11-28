@@ -9,7 +9,7 @@ import paho.mqtt.client as mqtt
 # เกณฑ์การตรวจจับ (Threshold)
 # ค่านี้คือความเร่งสูงสุดที่ยอมรับได้เมื่อวัตถุ "นิ่ง"
 # หากค่าความเร่ง (ในหน่วย m/s^2) เกินค่านี้ จะถือว่ามีการเคลื่อนที่
-MOTION_THRESHOLD_ACCEL = 1.9  # m/s^2 (ประมาณ 0.05g)
+MOTION_THRESHOLD_ACCEL = 8  # m/s^2 (ประมาณ 0.05g)
 
 # ---------------------- MQTT SETUP ----------------------
 MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
@@ -61,16 +61,14 @@ try:
         # 3.2 คำนวณค่าสัมบูรณ์ (Absolute Value) เพื่อไม่สนใจทิศทาง
         abs_accel_x = abs(accel_x)
         
-        # 3.3 ตรวจสอบการเคลื่อนไหว
-        is_moving_now = abs_accel_x > MOTION_THRESHOLD_ACCEL
-        
-        print(f"Accel X: {accel_x:.3f} m/s² | Moving: {is_moving_now}")
+        # 3.3 ตรวจสอบการเคลื่อนไหว        
+        print(f"Accel X: {accel_x:.3f} m/s² | Moving: {1}")
 
-        # # 3.4 ตรวจจับการเปลี่ยนแปลงสถานะและส่ง MQTT
-        # if is_moving_now != last_motion_state:
-        #     last_motion_state = is_moving_now
+        if abs_accel_x < MOTION_THRESHOLD_ACCEL:
+            # ประตูเคลื่อนที่ 
+            publish_door_status(1)
 
-        publish_door_status(is_moving_now)
+        publish_door_status(0)
         time.sleep(1)  # หน่วงเวลา 1 วินาที ระหว่างการอ่านค่า
         
 except KeyboardInterrupt:
