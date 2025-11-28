@@ -16,7 +16,6 @@ export interface SensorData {
   sound: number | null;
   ldr: number | null;
   peopleCount: number | null;
-  door_open: number | null;
 }
 
 interface FirestoreDoc {
@@ -35,7 +34,6 @@ export const useFirebaseSensors = () => {
     sound: null,
     ldr: null,
     peopleCount: null,
-    door_open: null,
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,7 +70,6 @@ export const useFirebaseSensors = () => {
           sound: latestValues["sound"] ?? null,
           ldr: latestValues["light"] ?? null,
           peopleCount: latestValues["people_count"] ?? null,
-          door_open: latestValues["door_open"] ?? null,
         });
 
         setIsLoading(false);

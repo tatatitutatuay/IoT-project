@@ -20,12 +20,12 @@ export default function Dashboard() {
   } = useFirebaseSensors();
 
   // MQTT for images
-  const { isConnected, imageData, error: mqttError } = useMQTT();
+  const { isConnected, imageData, error: mqttError, door_open } = useMQTT();
   const [currentTime, setCurrentTime] = useState<string>("");
 
   // Check for door open status and show toast notification
   useEffect(() => {
-    if (sensorData.door_open === 1) {
+    if (door_open === 1) {
       toast("Door is open!", {
         duration: 4000,
         style: {
@@ -36,7 +36,7 @@ export default function Dashboard() {
         icon: "🚪",
       });
     }
-  }, [sensorData.door_open]);
+  }, [door_open]);
 
   useEffect(() => {
     // Update time every second

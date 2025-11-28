@@ -5,6 +5,7 @@ interface UseMQTTReturn {
   isConnected: boolean;
   imageData: string | null;
   error: string | null;
+  door_open: number | null;
 }
 
 export const useMQTT = (
@@ -13,6 +14,7 @@ export const useMQTT = (
   const [isConnected, setIsConnected] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [door_open, setDoorOpen] = useState<number | null>(null);
   const clientRef = useRef<MqttClient | null>(null);
 
   useEffect(() => {
@@ -28,8 +30,9 @@ export const useMQTT = (
       setIsConnected(true);
       setError(null);
 
-      // Subscribe to image topic only
+      // Subscribe to image and data topics
       client.subscribe("tippaphanun/5f29d93c/sensor/image", { qos: 1 });
+      client.subscribe("tippaphanun/5f29d93c/sensor/data", { qos: 1 });
     });
 
     client.on("message", (topic, message) => {
@@ -49,6 +52,20 @@ export const useMQTT = (
             const base64Image = message.toString("base64");
             const dataUrl = `data:image/jpeg;base64,${base64Image}`;
             setImageData(dataUrl);
+          }
+          return;
+        }
+
+        // Handle sensor data for door_open only
+        if (topic === "tippaphanun/5f29d93c/sensor/data") {
+          console.log("   Sensor data message received");
+          try {
+            const payload = JSON.parse(message.toString());
+            if (payload.type === "door_open") {
+              setDoorOpen(payload.value);
+            }
+          } catch (parseErr) {
+            console.error("Failed to parse sensor data:", parseErr);
           }
           return;
         }
@@ -87,5 +104,6 @@ export const useMQTT = (
     isConnected,
     imageData,
     error,
+    door_open,
   };
 };
