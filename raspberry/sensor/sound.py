@@ -7,7 +7,7 @@ import paho.mqtt.client as mqtt
 PIN_D0 = 17 # GPIO 17 (Pin 11)
 
 # ---------------------- MQTT SETUP ----------------------
-MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
+MQTT_BROKER = "localhost"      # change to your server IP if needed
 MQTT_PORT = 1883
 MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data"
 
