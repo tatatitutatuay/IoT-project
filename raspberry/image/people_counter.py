@@ -19,7 +19,7 @@ model = YOLO("yolov8n.pt")
 # Setup Pi Camera
 picam2 = Picamera2()
 config = picam2.create_video_configuration(
-    main={"size": (416, 320), "format": "RGB888"}
+    main={"size": (640, 480), "format": "RGB888"}
 )
 picam2.configure(config)
 picam2.start()
