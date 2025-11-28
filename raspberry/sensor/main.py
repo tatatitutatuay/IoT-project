@@ -28,7 +28,7 @@ def main():
     
     # List of scripts to run
     scripts = [
-        "air.py",
+        "mpu6050.py",
         "sound.py",
         "../logger/logger.py"
     ]
