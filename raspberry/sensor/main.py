@@ -30,7 +30,6 @@ def main():
     scripts = [
         "mpu6050.py",
         "sound.py",
-        "../image/people_counter.py",
         "../logger/logger.py"
     ]
     

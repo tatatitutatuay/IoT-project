@@ -34,6 +34,9 @@ try:
     
     GPIO.setup(PIN_D0, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
+    while GPIO.input(PIN_D0) == GPIO.HIGH:
+        print("✅ พบเซ็นเซอร์เสียง (Sound Sensor)!")
+
     # เพิ่ม Event Detection (Interrupt)
     # เราจะตรวจจับขอบขาขึ้น (Rising edge) คือเมื่อสัญญาณเปลี่ยนจาก LOW ไป HIGH
     GPIO.add_event_detect(PIN_D0, GPIO.RISING, 
@@ -44,7 +47,7 @@ try:
 
     # วนลูปไปเรื่อยๆ เพื่อให้โปรแกรมทำงาน
     while True:
-        time.sleep(10) # พัก 60 วินาที
+        time.sleep(3) # พัก 3 วินาที
         payload_sound_event(0) # ส่งสถานะไม่มีเสียงเป็นระยะ
 
 except KeyboardInterrupt:

@@ -27,7 +27,7 @@ def publish_door_status(is_moving: bool):
     print(f"-> Published Door Status: {status}")
 
 # ---------------------- CONFIGURATION ----------------------
-MOTION_THRESHOLD_ACCEL = 8
+MOTION_THRESHOLD_ACCEL = 5
 
 # --- 1. เริ่มต้นการเชื่อมต่อ I2C ---
 try:
@@ -64,19 +64,18 @@ try:
         # 3.3 ตรวจสอบการเคลื่อนไหว
         print(f"Accel X: {accel_x:.3f} m/s² | Abs Accel X: {abs_accel_x:.3f} m/s²")
         
-        # 💡 ตรวจสอบ: ถ้าค่าความเร่งสัมบูรณ์ สูงกว่า เกณฑ์ที่กำหนด = ประตูกำลังเคลื่อนที่ (เปิด/ปิด)
         if abs_accel_x < MOTION_THRESHOLD_ACCEL:
-            current_status = 1 # 1 = กำลังเคลื่อนที่ (เปิด)
+            current_status = 1 # กำลังเคลื่อนที่ (เปิด)
         else:
-            current_status = 0 # 0 = หยุดนิ่ง (ปิด/หยุด)
+            current_status = 0 # หยุดนิ่ง (ปิด/หยุด)
 
         # 💡 ตรวจสอบเพื่อป้องกันการส่งข้อความซ้ำ ๆ (Optimization)
         if current_status != last_status:
-            publish_door_status(current_status == 1) # True ถ้า current_status เป็น 1
+            publish_door_status(current_status == 1) 
             last_status = current_status
         
         # 💡 ปรับเวลาหน่วง
-        time.sleep(PUBLISH_INTERVAL)
+        time.sleep(PUBLISH_INTERVAL if current_status == 1 else MOTION_DETECTED_WAIT_TIME)
         
 except KeyboardInterrupt:
     print("\n👋 หยุดการทำงาน")
