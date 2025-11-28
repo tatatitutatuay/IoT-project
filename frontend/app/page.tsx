@@ -9,6 +9,7 @@ import { CrowdMonitor } from "@/components/CrowdMonitor";
 import { SensorChart } from "@/components/SensorChart";
 import { ImageMonitor } from "@/components/ImageMonitor";
 import { Thermometer, Droplets, Volume2, Sun, Activity } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 export default function Dashboard() {
   // Firebase for sensor data
@@ -21,6 +22,21 @@ export default function Dashboard() {
   // MQTT for images
   const { isConnected, imageData, error: mqttError } = useMQTT();
   const [currentTime, setCurrentTime] = useState<string>("");
+
+  // Check for door open status and show toast notification
+  useEffect(() => {
+    if (sensorData.door_open === 1) {
+      toast("Door is open!", {
+        duration: 4000,
+        style: {
+          background: "#f59e0b",
+          color: "#ffffff",
+          fontWeight: "bold",
+        },
+        icon: "🚪",
+      });
+    }
+  }, [sensorData.door_open]);
 
   useEffect(() => {
     // Update time every second
