@@ -12,11 +12,11 @@ import paho.mqtt.client as mqtt
 MOTION_THRESHOLD_ACCEL = 0.5  # m/s^2 (ประมาณ 0.05g)
 
 # ---------------------- MQTT SETUP ----------------------
-MQTT_BROKER = "test.mosquitto.org"
+MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
 MQTT_PORT = 1883
-MQTT_TOPIC = "tippaphanun/5f29d93c/door_status" # เปลี่ยน topic เพื่อส่งสถานะประตูโดยเฉพาะ
+MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data"
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+client = mqtt.Client()
 client.connect(MQTT_BROKER, MQTT_PORT, 60)
 client.loop_start() # ให้ MQTT ทำงานใน background
 # --------------------------------------------------------
@@ -29,7 +29,7 @@ def publish_door_status(is_moving: bool):
         "type": "door_open",
         "value": status
     }
-    client.publish(MQTT_TOPIC, json.dumps(payload), qos=1)
+    client.publish(MQTT_TOPIC, json.dumps(payload))
     print(f"-> Published Door Status: {status}")
 
 # --- 1. เริ่มต้นการเชื่อมต่อ I2C ---
