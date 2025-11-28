@@ -53,8 +53,11 @@ def on_message(client, userdata, msg):
 
     # Route by topic / type
     if topic.endswith("/sensor/data"):
-        print("Received data message:", data)
-        save_data(data)
+        if data.get("type") in ["door_open"]:
+            print("Received door status message:", data)
+        else:
+            print("Received data message:", data)
+            save_data(data)
     else:
         print("No handler for this topic/type, skipping.")
 

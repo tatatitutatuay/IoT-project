@@ -104,7 +104,7 @@ export const ImageMonitor: React.FC<ImageMonitorProps> = ({
             <img
               src={imageSrc}
               alt="Sensor camera feed"
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain rotate-180"
               onError={() => setImageError(true)}
               onLoad={(e) => {
                 const img = e.target as HTMLImageElement;

@@ -36,7 +36,7 @@ export const useMQTT = (
       try {
         // Handle image data separately (binary)
         if (topic === "tippaphanun/5f29d93c/sensor/image") {
-          console.log(`   Image received, size: ${message.length} bytes`);
+          // console.log(`   Image received, size: ${message.length} bytes`);
 
           try {
             // Try to parse as JSON first
