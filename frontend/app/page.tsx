@@ -170,9 +170,11 @@ export default function Dashboard() {
               title="Sound Detected"
               value={
                 sensorData.sound !== null
-                  ? sensorData.sound === 1
-                    ? "YES"
-                    : "NO"
+                  ? sensorData.sound < 700
+                    ? "Quiet"
+                    : sensorData.sound < 900
+                    ? "Moderate"
+                    : "Loud"
                   : "--"
               }
               unit=""
