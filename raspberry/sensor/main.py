@@ -75,14 +75,13 @@ def main():
             time.sleep(1)
             
             # Check if any process died
-            for script, proc in processes:
+            for i, (script, proc) in enumerate(processes):
                 if proc.poll() is not None:
                     print(f"⚠️  {script} terminated unexpectedly with code {proc.returncode}")
-                    print(f"   Restarting {script}...")
-                    new_proc = run_script(script)
-                    if new_proc:
-                        # Replace the dead process
-                        processes[processes.index((script, proc))] = (script, new_proc)
+                    print(f"   {script} has failed and will not be restarted.")
+                    # Remove the failed process from monitoring
+                    processes.pop(i)
+                    break  # Break to avoid index issues after removing item
     
     except KeyboardInterrupt:
         signal_handler(signal.SIGINT, None)
