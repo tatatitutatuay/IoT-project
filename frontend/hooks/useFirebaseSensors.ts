@@ -13,9 +13,6 @@ import {
 export interface SensorData {
   temperature: number | null;
   humidity: number | null;
-  aqi: number | null;
-  tvoc: number | null;
-  eco2: number | null;
   sound: number | null;
   ldr: number | null;
   peopleCount: number | null;
@@ -34,9 +31,6 @@ export const useFirebaseSensors = () => {
   const [sensorData, setSensorData] = useState<SensorData>({
     temperature: null,
     humidity: null,
-    aqi: null,
-    tvoc: null,
-    eco2: null,
     sound: null,
     ldr: null,
     peopleCount: null,
@@ -73,9 +67,6 @@ export const useFirebaseSensors = () => {
         setSensorData({
           temperature: latestValues["temp"] ?? null,
           humidity: latestValues["humid"] ?? null,
-          aqi: latestValues["aqi"] ?? null,
-          tvoc: latestValues["tvoc"] ?? null,
-          eco2: latestValues["eco2"] ?? null,
           sound: latestValues["sound"] ?? null,
           ldr: latestValues["light"] ?? null,
           peopleCount: latestValues["people_count"] ?? null,
