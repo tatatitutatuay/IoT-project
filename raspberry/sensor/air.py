@@ -7,7 +7,7 @@ import json
 import paho.mqtt.client as mqtt
 
 # ---------------------- MQTT SETUP ----------------------
-MQTT_BROKER = "test.mosquitto.org"      # change to your server IP if needed
+MQTT_BROKER = "raspberrypi.local"      # change to your server IP if needed
 MQTT_PORT = 1883
 MQTT_TOPIC = "tippaphanun/5f29d93c/sensor/data"
 

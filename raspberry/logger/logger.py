@@ -17,7 +17,7 @@ firebase_admin.initialize_app(cred)
 db = firestore.client()
 
 # ---------- MQTT setup ----------
-MQTT_BROKER = "test.mosquitto.org"
+MQTT_BROKER = "raspberrypi.local"
 MQTT_PORT = 1883
 MQTT_TOPIC_ROOT = "tippaphanun/5f29d93c/sensor/data"
 

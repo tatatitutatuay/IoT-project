@@ -5,7 +5,7 @@ import time
 import json
 import paho.mqtt.client as mqtt
 
-MQTT_BROKER = "test.mosquitto.org"
+MQTT_BROKER = "raspberrypi.local"
 MQTT_PORT = 1883
 MQTT_TOPIC_COUNT = "tippaphanun/5f29d93c/sensor/data"
 MQTT_TOPIC_IMAGE = "tippaphanun/5f29d93c/sensor/image"

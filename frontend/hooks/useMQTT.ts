@@ -9,7 +9,7 @@ interface UseMQTTReturn {
 }
 
 export const useMQTT = (
-  brokerUrl: string = "wss://test.mosquitto.org:8081"
+  brokerUrl: string = "wss://raspberrypi.local:8081"
 ): UseMQTTReturn => {
   const [isConnected, setIsConnected] = useState(false);
   const [imageData, setImageData] = useState<string | null>(null);

@@ -34,28 +34,26 @@ export const useFirebaseChartData = (
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Query all recent data (no composite index needed)
-    // We'll filter by type client-side to avoid index requirement
+    // Get recent data from Firebase
     const chartQuery = query(
       collection(db, "data"),
       orderBy("created_at", "desc"),
-      limit(maxPoints * 10) // Fetch more to ensure enough after filtering
+      limit(100) // Get 100 recent documents
     );
 
-    // Set up real-time listener
+    // Listen for data updates
     const unsubscribe = onSnapshot(
       chartQuery,
       (snapshot) => {
-        const dataPoints: ChartDataPoint[] = [];
+        const points: ChartDataPoint[] = [];
 
         snapshot.docs.forEach((doc) => {
           const data = doc.data() as FirestoreDoc;
-
-          // Filter by sensor type client-side
+          
+          // Only get data for this sensor type
           if (data.type === sensorType) {
             const date = new Date(data.created_at.seconds * 1000);
-
-            dataPoints.push({
+            points.push({
               timestamp: date.toLocaleTimeString(),
               value: data.value,
               dateObj: date,
@@ -63,21 +61,17 @@ export const useFirebaseChartData = (
           }
         });
 
-        // Take only the requested number of points and reverse
-        const limitedPoints = dataPoints.slice(0, maxPoints).reverse();
-
-        setChartData(limitedPoints);
+        // Take first 20 points and reverse (oldest first)
+        setChartData(points.slice(0, maxPoints).reverse());
         setIsLoading(false);
         setError(null);
       },
       (err) => {
-        console.error(`❌ Firebase Chart Error (${sensorType}):`, err);
         setError(err.message);
         setIsLoading(false);
       }
     );
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [sensorType, maxPoints]);
 
