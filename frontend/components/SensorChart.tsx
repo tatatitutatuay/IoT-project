@@ -173,6 +173,7 @@ export const SensorChart: React.FC<SensorChartProps> = ({
               dot={{ fill: color, strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6, strokeWidth: 2 }}
               name={title}
+              isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>

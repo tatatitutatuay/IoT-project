@@ -10,7 +10,7 @@ interface CrowdMonitorProps {
 export const CrowdMonitor: React.FC<CrowdMonitorProps> = ({
   crowdCount,
   crowdDensity,
-  maxPeople = 30,
+  maxPeople = 10,
 }) => {
   const densityPercentage = Math.round((crowdCount / maxPeople) * 100);
 

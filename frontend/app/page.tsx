@@ -48,8 +48,8 @@ export default function Dashboard() {
   }, []);
 
   const getCrowdDensity = (count: number | null): "low" | "medium" | "high" => {
-    if (count === null || count < 10) return "low";
-    if (count < 20) return "medium";
+    if (count === null || count < 3) return "low";
+    if (count < 5) return "medium";
     return "high";
   };
 
